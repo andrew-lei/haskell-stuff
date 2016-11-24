@@ -15,8 +15,11 @@ twoPassCovariance :: Double -> Double -> [Double] -> [Double] -> Double
 twoPassCovariance mean1 mean2 values1 values2 =
   foldl' (\x y -> x + (fst y - mean1) * (snd y - mean2)) 0 (zip values1 values2) / (fromIntegral $ min (length values1) (length values2))
 
-linRegress :: [Double] -> [Double] -> (Double -> Double)
-linRegress values1 values2 x = slope * x + intercept
+data Regression = Regression {slope, intercept :: Double}
+  deriving Show
+
+linRegress :: [Double] -> [Double] -> Regression
+linRegress values1 values2 = Regression slope intercept
   where
     mean1 = mean values1
     mean2 = mean values2
@@ -25,6 +28,9 @@ linRegress values1 values2 x = slope * x + intercept
     slope = cov / var1
     intercept = mean2 - cov / var1 * mean1
 
+regPredict :: Regression -> Double -> Double
+regPredict reg x = slope reg * x + intercept reg
+
 main = do print mu1
           print var1
           print mu2
@@ -32,7 +38,8 @@ main = do print mu1
           print cov
           print $ cov / var1 -- slope is 10
           print $ mu2 - cov / var1 * mu1 -- intercept is also about 10
-          print $ f 5.0
+          print f
+          print $ regPredict f 5.0
   where
     vals1 :: [Double]
     -- 100 random numbers
@@ -51,5 +58,5 @@ main = do print mu1
     var2 = twoPassVariance mu2 vals2
     cov :: Double
     cov = twoPassCovariance mu1 mu2 vals1 vals2
-    f :: Double -> Double
+    f :: Regression
     f = linRegress vals1 vals2
