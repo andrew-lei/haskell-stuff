@@ -1,10 +1,11 @@
 import Data.List
+import Numeric.Sum
 
 mean :: [Double] -> Double
-mean values = sum values / (fromIntegral $ length values)
+mean values = Numeric.Sum.sum kbn values / (fromIntegral $ length values)
 
 twoPassVariance :: Double -> [Double] -> Double
-twoPassVariance mean values = foldl' (\x y -> x + (y - mean)^2) 0 values / (fromIntegral $ length values)
+twoPassVariance mean values = (Numeric.Sum.sum kbn $ map (\x -> (x - mean) * (x - mean)) values) / (fromIntegral $ length values)
 
 --twoPassCovariance :: (Double, Double) -> [(Double, Double)] -> Double
 --twoPassCovariance means values = foldl' (\x y -> x + (fst y - fst means) * (snd y - snd means)) 0 values / (fromIntegral $ length values - 1)
@@ -13,7 +14,11 @@ twoPassVariance mean values = foldl' (\x y -> x + (y - mean)^2) 0 values / (from
 -- But eh
 twoPassCovariance :: Double -> Double -> [Double] -> [Double] -> Double
 twoPassCovariance mean1 mean2 values1 values2 =
-  foldl' (\x y -> x + (fst y - mean1) * (snd y - mean2)) 0 (zip values1 values2) / (fromIntegral $ min (length values1) (length values2))
+  (Numeric.Sum.sum kbn $ map (\x -> (fst x - mean1) * (snd x - mean2)) (zip values1 values2)) /
+    (fromIntegral $ min (length values1) (length values2))
+
+twoPassSkewness :: Double -> Double -> [Double] -> Double
+twoPassSkewness mean variance values = (Numeric.Sum.sum kbn $ map (\x -> (x - mean)^3) values) / (variance**1.5 * (fromIntegral $ length values))
 
 data Regression = Regression {slope, intercept :: Double}
   deriving Show
@@ -31,15 +36,15 @@ linRegress values1 values2 = Regression slope intercept
 regPredict :: Regression -> Double -> Double
 regPredict reg x = slope reg * x + intercept reg
 
-main = do print mu1
-          print var1
-          print mu2
-          print var2
-          print cov
-          print $ cov / var1 -- slope is 10
-          print $ mu2 - cov / var1 * mu1 -- intercept is also about 10
+pearsonR :: Double -> Double -> Double -> Double
+pearsonR covariance variance1 variance2 = covariance / sqrt(variance1 * variance2)
+
+main = do putStr $ "First data set mean, variance, skew: " ++ intercalate " " (map show [mu1, var1, skew1]) ++ "\n"
+          putStr $ "Second data set mean, variance, skew: " ++ intercalate " " (map show [mu2, var2, skew2]) ++ "\n"
+          putStr $ "Covariance: " ++ show cov ++ "\n"
           print f
-          print $ regPredict f 5.0
+          putStr $ "Regression prediction at x = 5.0: " ++ show (regPredict f 5.0) ++ "\n"
+          putStr $ "Pearson R: " ++ show r ++ "\n"
   where
     vals1 :: [Double]
     -- 100 random numbers
@@ -60,3 +65,9 @@ main = do print mu1
     cov = twoPassCovariance mu1 mu2 vals1 vals2
     f :: Regression
     f = linRegress vals1 vals2
+    skew1 :: Double
+    skew1 = twoPassSkewness mu1 var1 vals1
+    skew2 :: Double
+    skew2 = twoPassSkewness mu2 var2 vals2
+    r :: Double
+    r = pearsonR cov var1 var2
