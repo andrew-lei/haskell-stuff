@@ -8,9 +8,10 @@ instance Num Dual where
   signum (Dual a b) = Dual (signum a) $ signum b
   abs (Dual a b) = Dual (abs a) $ b * signum a
   fromInteger a = Dual (fromInteger a) (fromInteger 0)
+  negate (Dual a b) = Dual (-a) (-b)
 
 instance Fractional Dual where
-  Dual a b / (Dual c d) = Dual (a / c) $ (c*d - a*d) / (c*c)
+  Dual a b / (Dual c d) = Dual (a / c) $ (c*b - a*d) / (c*c)
   fromRational a = Dual (fromRational a) (fromRational 0)
 
 instance Floating Dual where
@@ -36,6 +37,31 @@ instance Floating Dual where
 
   exp (Dual a b) = Dual (exp a) $ b * exp a
   log (Dual a b) = Dual (log a) $ b/a
+
+deriv :: (Dual -> Dual) -> Double -> Double
+deriv f = imaginary . f . (flip Dual 1.0)
+
+legendre :: (Fractional a) => Integer -> a -> a
+legendre 0 _ = 1
+legendre n x = helper x 1 x n
+  where
+    helper :: (Fractional a) => a -> a -> a -> Integer -> a
+    helper _ _    acc2 1 = acc2
+    helper x acc1 acc2 n = helper x acc2 rec (n-1)
+      where 
+        n' = fromInteger n
+        rec = ((2*n' - 1) * x * acc2 - (n'-1) * acc1)/n' 
+
+hermite :: (Fractional a) => Integer -> a -> a
+hermite 0 _ = 1
+hermite n x = helper x 1 (2*x) n
+  where
+    helper :: (Fractional a) => a -> a -> a -> Integer -> a
+    helper _ _    acc2 1 = acc2
+    helper x acc1 acc2 n = helper x acc2 rec (n-1)
+      where
+        n' = fromInteger n
+        rec = 2 * x * acc2 - 2 * (n' - 1) * acc1
 
 
 main = print a
