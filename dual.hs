@@ -66,11 +66,6 @@ hermite n x = helper 1 (2*x) n
         n' = fromIntegral n
         rec = 2 * x * acc2 - 2 * (n' - 1) * acc1
 
-test :: (forall a. Fractional a => (a -> a)) -> Double -> Double -> Double
-test f x y = f'x * fy
-  where
-    f'x = (deriv f) x
-    fy = f y
 
 roots :: Double -> (forall a. Fractional a => (a -> a)) -> Int -> Double -> [Double]
 roots tol f nroots lowbd = helper lowbd []
