@@ -1,4 +1,3 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes #-}
 
 data Dual = Dual {real, inf :: Double}
@@ -67,6 +66,11 @@ hermite n x = helper 1 (2*x) n
         n' = fromIntegral n
         rec = 2 * x * acc2 - 2 * (n' - 1) * acc1
 
+test :: (forall a. Fractional a => (a -> a)) -> Double -> Double -> Double
+test f x y = f'x * fy
+  where
+    f'x = (deriv f) x
+    fy = f y
 
 roots :: Double -> (forall a. Fractional a => (a -> a)) -> Int -> Double -> [Double]
 roots tol f nroots lowbd = helper lowbd []
@@ -89,8 +93,12 @@ roots tol f nroots lowbd = helper lowbd []
             fguess = f guess
             f'guess :: Double
             f'guess = (deriv f) guess
+            transformation :: Double -> Double -> Double
+            transformation acc zero = acc + 1 / (guess - zero)
+            transformedSum :: [Double] -> Double
+            transformedSum = foldl transformation 0
             guess' :: Double
-            guess' = guess - fguess / (f'guess - fguess * foldl (\acc zero -> acc + 1 / (guess - zero)) 0 zeros)
+            guess' = guess - fguess / (f'guess - fguess * transformedSum zeros)
 
 
 main = print rs
