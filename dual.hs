@@ -1,4 +1,7 @@
-data Dual = Dual {real, imaginary :: Double}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE RankNTypes #-}
+
+data Dual = Dual {real, inf :: Double}
   deriving (Show, Eq)
 
 instance Num Dual where
@@ -38,33 +41,59 @@ instance Floating Dual where
   exp (Dual a b) = Dual (exp a) $ b * exp a
   log (Dual a b) = Dual (log a) $ b/a
 
+makevar :: Double -> Dual
+makevar x = Dual x 1.0
+
 deriv :: (Dual -> Dual) -> Double -> Double
-deriv f = imaginary . f . (flip Dual 1.0)
+deriv f = inf . f . makevar
 
-legendre :: (Fractional a) => Integer -> a -> a
+legendre :: (Fractional a) => Int -> a -> a
 legendre 0 _ = 1
-legendre n x = helper x 1 x n
+legendre n x = helper 1 x n
   where
-    helper :: (Fractional a) => a -> a -> a -> Integer -> a
-    helper _ _    acc2 1 = acc2
-    helper x acc1 acc2 n = helper x acc2 rec (n-1)
-      where 
-        n' = fromInteger n
-        rec = ((2*n' - 1) * x * acc2 - (n'-1) * acc1)/n' 
-
-hermite :: (Fractional a) => Integer -> a -> a
-hermite 0 _ = 1
-hermite n x = helper x 1 (2*x) n
-  where
-    helper :: (Fractional a) => a -> a -> a -> Integer -> a
-    helper _ _    acc2 1 = acc2
-    helper x acc1 acc2 n = helper x acc2 rec (n-1)
+    helper _    acc2 1 = acc2
+    helper acc1 acc2 n = helper acc2 rec (n-1)
       where
-        n' = fromInteger n
+        n' = fromIntegral n
+        rec = ((2*n' - 1) * x * acc2 - (n'-1) * acc1)/n'
+
+hermite :: (Fractional a) => Int -> a -> a
+hermite 0 _ = 1
+hermite n x = helper 1 (2*x) n
+  where
+    helper _    acc2 1 = acc2
+    helper acc1 acc2 n = helper acc2 rec (n-1)
+      where
+        n' = fromIntegral n
         rec = 2 * x * acc2 - 2 * (n' - 1) * acc1
 
 
-main = print a
+roots :: Double -> (forall a. Fractional a => (a -> a)) -> Int -> Double -> [Double]
+roots tol f nroots lowbd = helper lowbd []
+  where
+    helper :: Double -> [Double] -> [Double]
+    helper lowbd zeros
+      | length zeros == nroots = zeros
+      | otherwise = helper (newzero + tol) (newzero:zeros)
+      where
+        newzero :: Double
+        newzero = helper' lowbd
+
+        helper' :: Double -> Double
+        helper' guess
+          | (abs . real . f . makevar) guess < tol = guess
+          --x_i = x_i - f(x_i) / (f'(x_i) - f(x_i) * sum_{j < i}(1 / (x_i - x_j)))
+          | otherwise = helper' guess'
+          where
+            fguess :: Double
+            fguess = f guess
+            f'guess :: Double
+            f'guess = (deriv f) guess
+            guess' :: Double
+            guess' = guess - fguess / (f'guess - fguess * foldl (\acc zero -> acc + 1 / (guess - zero)) 0 zeros)
+
+
+main = print rs
   where
     x :: Integer
     x = 5
@@ -72,3 +101,8 @@ main = print a
     y = Dual 2.0 4.5
     a :: Dual
     a = y*fromInteger x
+
+    rootFinder = roots (10**(-12))
+    lFinder = rootFinder (legendre 20) 20
+    rs :: [Double]
+    rs = lFinder (-1.0)
