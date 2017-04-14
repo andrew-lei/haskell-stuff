@@ -1,4 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
+import Data.List
 
 data Dual = Dual {real, inf :: Double}
   deriving (Show, Eq)
@@ -66,7 +69,6 @@ hermite n x = helper 1 (2*x) n
         n' = fromIntegral n
         rec = 2 * x * acc2 - 2 * (n' - 1) * acc1
 
-
 roots :: Double -> (forall a. Fractional a => (a -> a)) -> Int -> Double -> [Double]
 roots tol f nroots lowbd = helper lowbd []
   where
@@ -75,6 +77,14 @@ roots tol f nroots lowbd = helper lowbd []
       | length zeros == nroots = zeros
       | otherwise = helper (newzero + tol) (newzero:zeros)
       where
+        malu :: Double -> Double
+        -- Move A Little Up
+        -- Otherwise you're stuck and will get divide by zero
+        malu x
+          | x < 0 = x * (1 - 2**(-53))
+          | x == 0 = 2**(-1074)
+          | x > 0 = x * (1 + 2**(-52))
+
         newzero :: Double
         newzero = helper' lowbd
 
@@ -84,28 +94,67 @@ roots tol f nroots lowbd = helper lowbd []
           --x_i = x_i - f(x_i) / (f'(x_i) - f(x_i) * sum_{j < i}(1 / (x_i - x_j)))
           | otherwise = helper' guess'
           where
-            fguess :: Double
+            guess' :: Double
+            guess' = guess - fguess / (f'guess - fguess * transformedSum zeros)
+
             fguess = f guess
-            f'guess :: Double
             f'guess = (deriv f) guess
             transformation :: Double -> Double -> Double
             transformation acc zero = acc + 1 / (guess - zero)
             transformedSum :: [Double] -> Double
             transformedSum = foldl transformation 0
-            guess' :: Double
-            guess' = guess - fguess / (f'guess - fguess * transformedSum zeros)
 
-
-main = print rs
+gaussQuadrature :: Double -> (forall a. Fractional a => (a -> a)) -> (Double -> Double) -> (Double -> Double) -> (Int -> Double) -> Int -> (Double -> Double) -> Double
+gaussQuadrature tol orthogPoly omega weightf lowbdf n f = res
   where
-    x :: Integer
-    x = 5
-    y :: Dual
-    y = Dual 2.0 4.5
-    a :: Dual
-    a = y*fromInteger x
+    zeros = roots tol orthogPoly n (lowbdf n)
 
-    rootFinder = roots (10**(-12))
-    lFinder = rootFinder (legendre 20) 20
-    rs :: [Double]
-    rs = lFinder (-1.0)
+    fWeighted x = (weightf x) * (omega x) * (f x)
+
+    res = sum $ map fWeighted zeros
+
+gaussLegendre :: Double -> Int -> (Double -> Double) -> (Double, Double) -> Double
+gaussLegendre tol n f (a,b) = gaussQuadrature tol (legendre n) legOmega legWeightf legLowbd n transformf
+  where
+    legOmega = \x -> 1
+    legLowbd = \x -> -1
+    legWeightf x = 2 / ((1-x*x) * pn'x * pn'x)
+      where
+        pn'x = pn' x
+        pn' = deriv $ legendre n
+
+    transformf x = (b-a)/2 * f ((b-a)/2 * x + (b+a)/2)
+
+gaussian :: Double -> Double
+gaussian x = 1 / (sqrt (2*pi)) * exp (-x*x/2)
+
+main = do
+    print $ minimum diffs
+    --print $ maximum zs
+    print $ gaussLegendre tol n gaussian (-1,1)
+    print $ gaussLegendre tol n gaussian (-1.96,1.96)
+    print $ gaussLegendre tol n gaussian (-2,2)
+    print $ gaussLegendre tol n gaussian (-3,3)
+      where
+        x :: Integer
+        x = 5
+        y :: Dual
+        y = Dual 2.0 4.5
+        a :: Dual
+        a = y*fromInteger x
+
+        n = 100
+        ln = legendre n
+
+        tol = (10**(-12))
+
+        rootFinder = roots tol
+        lFinder = rootFinder ln n
+        rs :: [Double]
+        rs = lFinder (-1.0)
+
+        zs :: [Double]
+        zs = map ln rs
+
+        rs' = sort rs
+        diffs = zipWith (-) (tail rs') rs'
