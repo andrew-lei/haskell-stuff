@@ -104,37 +104,66 @@ roots tol f nroots lowbd = helper lowbd []
             transformedSum :: [Double] -> Double
             transformedSum = foldl transformation 0
 
-gaussQuadrature :: Double -> (forall a. Fractional a => (a -> a)) -> (Double -> Double) -> (Double -> Double) -> (Int -> Double) -> Int -> (Double -> Double) -> Double
-gaussQuadrature tol orthogPoly omega weightf lowbdf n f = res
+gaussQuadrature :: [(Double, Double, Double)] -> Int -> (Double -> Double) -> Double
+gaussQuadrature polyVals n f = sum $ map (apply f) polyVals
   where
-    zeros = roots tol orthogPoly n (lowbdf n)
-
-    fWeighted x = (weightf x) * (omega x) * (f x)
-
-    res = sum $ map fWeighted zeros
+    apply :: (Double -> Double) -> (Double, Double, Double) -> Double
+    apply f (zero, omega, weight) = weight / omega * (f zero)
 
 gaussLegendre :: Double -> Int -> (Double -> Double) -> (Double, Double) -> Double
-gaussLegendre tol n f (a,b) = gaussQuadrature tol (legendre n) legOmega legWeightf legLowbd n transformf
+gaussLegendre tol n = glIntegrate
   where
-    legOmega = \x -> 1
-    legLowbd = \x -> -1
-    legWeightf x = 2 / ((1-x*x) * pn'x * pn'x)
+    zeros = roots tol (legendre n) n (-1)
+    omegas = map (\x -> 1) zeros
+    weights = map weightf zeros
+
+    weightf x = 2 / ((1-x*x) * pn'x * pn'x)
       where
         pn'x = pn' x
         pn' = deriv $ legendre n
 
-    transformf x = (b-a)/2 * f ((b-a)/2 * x + (b+a)/2)
+    polyVals = zip3 zeros omegas weights
+
+    glIntegrate f (a,b) = gaussQuadrature polyVals n transformf
+      where
+        transformf x = (b-a)/2 * f ((b-a)/2 * x + (b+a)/2)
+
+gaussHermite :: Double -> Int -> (Double -> Double) -> Double
+gaussHermite tol n = ghIntegrate
+  where
+    hermiteLB :: Int -> Double
+    hermiteLB n = - (fromIntegral n - 1) * sqrt (2 / (fromIntegral n + 2))
+    zeros = roots tol (hermite n) n (hermiteLB n)
+    omegas = map (\x -> exp (-x*x)) zeros
+    weights = map weightf zeros
+
+    -- w_i = 2^{n-1} n! sqrt(pi) / (n^2 H_{n-1}(x_i)^2)
+    -- H_{n-1}(x) = H'_n(x) / (2n)
+    weightf x = 2 ** (fromIntegral n+1) * fromIntegral (fact 1 n) * sqrt pi / (hn'x * hn'x)
+      where
+        fact acc 0 = acc
+        fact acc n = fact (n*acc) (n-1)
+
+        hn'x = deriv (hermite n) $ x
+
+    polyVals = zip3 zeros omegas weights
+
+    ghIntegrate :: (Double -> Double) -> Double
+    ghIntegrate f = gaussQuadrature polyVals n f
+
 
 gaussian :: Double -> Double
 gaussian x = 1 / (sqrt (2*pi)) * exp (-x*x/2)
 
 main = do
-    print $ minimum diffs
+    --print $ rs
+    --print $ minimum diffs
     --print $ maximum zs
-    print $ gaussLegendre tol n gaussian (-1,1)
-    print $ gaussLegendre tol n gaussian (-1.96,1.96)
-    print $ gaussLegendre tol n gaussian (-2,2)
-    print $ gaussLegendre tol n gaussian (-3,3)
+    print $ ((ghtn (\x -> exp (-x*x)))^2 - pi)/pi
+    --print $ gltn gaussian (-1,1)
+    --print $ gltn gaussian (-1.96,1.96)
+    --print $ gltn gaussian (-2,2)
+    --print $ gltn gaussian (-3,3)
       where
         x :: Integer
         x = 5
@@ -143,18 +172,26 @@ main = do
         a :: Dual
         a = y*fromInteger x
 
-        n = 100
+        n = 15
         ln = legendre n
+        hn = hermite n
 
-        tol = (10**(-12))
+        tol = (10**(-2))
 
         rootFinder = roots tol
         lFinder = rootFinder ln n
+        hFinder = rootFinder hn n
+        hermiteLB n = - (n-1) * sqrt (2 / (n+2))
+
         rs :: [Double]
-        rs = lFinder (-1.0)
+        --rs = lFinder (-1.0)
+        rs = hFinder (hermiteLB n)
 
         zs :: [Double]
-        zs = map ln rs
+        zs = map hn rs
 
         rs' = sort rs
         diffs = zipWith (-) (tail rs') rs'
+
+        gltn = gaussLegendre tol n
+        ghtn = gaussHermite tol n
