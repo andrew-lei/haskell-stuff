@@ -31,7 +31,7 @@ fullSimplify x = helper x (simplify x)
          | a == b    = a
          | otherwise = helper b (simplify b)
 
-ignoreForst = Ex [El S, El K]
+ignoreFirst = Ex [El S, El K]
 rev = Ex [El S, Ex [El K, Ex [El S, El I]], El K]
 iota = Ex [El S, El S, Ex [El K, Ex [El K, El K]], Ex [El S, El I, Ex [El K, El S]]]
 
