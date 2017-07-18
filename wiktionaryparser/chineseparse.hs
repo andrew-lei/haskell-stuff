@@ -2,7 +2,6 @@ module ChineseParse where
 
 import Prelude hiding (unlines)
 import Text.HTML.TagSoup
-import System.IO
 import Data.ByteString.Char8 (append, cons, ByteString, unlines)
 import Data.ByteString.UTF8 (fromString)
 
