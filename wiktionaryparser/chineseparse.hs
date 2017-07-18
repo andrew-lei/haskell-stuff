@@ -1,9 +1,9 @@
 module ChineseParse where
 
-import Prelude hiding (putStr, unlines)
+import Prelude hiding (unlines)
 import Text.HTML.TagSoup
-import System.IO hiding (hPutStr)
-import Data.ByteString.Char8 (append, cons, ByteString, hPutStr, unlines)
+import System.IO
+import Data.ByteString.Char8 (append, cons, ByteString, unlines)
 import Data.ByteString.UTF8 (fromString)
 
 headers :: [Tag String] -> [(String,[Char])]
@@ -33,12 +33,3 @@ fromString' (a, b) = fromString a `append` (',' `cons` fromString b)
 
 parsePage :: String -> ByteString
 parsePage = unlines . map fromString' . headers . parseTags
-
-{-main = withFile "./a.html" ReadMode $ \handle -> do
-  xs <- hGetContents handle
-  let parsed  = (unlines . map fromString' . headers . parseTags) xs
-  withFile "./output.txt" WriteMode $ \handle -> do
-    hPutStr handle parsed-}
-  {-let parsed' = (unlines . map (fromString . show) . parseTags) xs
-  withFile "./output2.txt" WriteMode $ \handle -> do
-    hPutStr handle parsed'-}
