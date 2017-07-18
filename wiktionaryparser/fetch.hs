@@ -25,4 +25,4 @@ main = do
     man <- newManager settings
     withFile "./output.txt" WriteMode $ \handle -> do
       hPutStr handle ""
-    mapM_ (getLetter man) ['a'..'z']
+    mapM_ (getLetter man) $ ['a'..'h'] ++ ['j'..'t'] ++ ['w'..'z']
