@@ -1,0 +1,44 @@
+module ChineseParse where
+
+import Prelude hiding (putStr, unlines)
+import Text.HTML.TagSoup
+import System.IO hiding (hPutStr)
+import Data.ByteString.Char8 (append, cons, ByteString, hPutStr, unlines)
+import Data.ByteString.UTF8 (fromString)
+
+headers :: [Tag String] -> [(String,[Char])]
+headers (TagOpen "span" [("class","mw-headline"),("id",_)]:rest) = section rest ++ headers rest
+headers (_:rest) = headers rest
+headers [] = []
+
+section :: [Tag String] -> [(String,[Char])]
+section (TagOpen "tr" []:rest) = pinyin rest:section rest
+section (TagClose "table":_)   = []
+section (_:rest)               = section rest
+
+pinyin :: [Tag String] -> (String, [Char])
+pinyin (TagOpen "a" [("href", _),("title",py)]:_:rest) = (py,hanzi rest)
+pinyin (_:rest)                                        = pinyin rest
+
+hanzi:: [Tag String] -> [Char]
+hanzi (TagText "\n":rest)    = hanzi rest
+hanzi (TagText ", ":rest)    = hanzi rest
+hanzi (TagText "\160:":rest) = hanzi rest
+hanzi (TagText chichar:rest) = head chichar:hanzi rest
+hanzi (TagClose "tr":_)      = []
+hanzi (_:rest)               = hanzi rest
+
+fromString' :: (String, [Char]) -> ByteString
+fromString' (a, b) = fromString a `append` (',' `cons` fromString b)
+
+parsePage :: String -> ByteString
+parsePage = unlines . map fromString' . headers . parseTags
+
+{-main = withFile "./a.html" ReadMode $ \handle -> do
+  xs <- hGetContents handle
+  let parsed  = (unlines . map fromString' . headers . parseTags) xs
+  withFile "./output.txt" WriteMode $ \handle -> do
+    hPutStr handle parsed-}
+  {-let parsed' = (unlines . map (fromString . show) . parseTags) xs
+  withFile "./output2.txt" WriteMode $ \handle -> do
+    hPutStr handle parsed'-}
